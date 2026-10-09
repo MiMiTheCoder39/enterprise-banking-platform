@@ -5,11 +5,27 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.12"
+    }
   }
 }
 
 provider "aws" {
   region = var.region
+}
+
+data "aws_eks_cluster_auth" "this" {
+  name = module.eks.cluster_name
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.this.token
+  }
 }
 
 module "vpc" {
@@ -35,4 +51,10 @@ module "eks" {
   node_desired_size   = 2
   node_min_size       = 1
   node_max_size       = 3
+}
+
+module "addons" {
+  source = "../../modules/addons"
+
+  depends_on = [module.eks]
 }

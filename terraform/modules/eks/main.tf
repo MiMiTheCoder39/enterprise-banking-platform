@@ -1,0 +1,37 @@
+# ---------- Cluster IAM Role ----------
+data "aws_iam_policy_document" "cluster_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["eks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "cluster" {
+  name               = "${var.cluster_name}-cluster-role"
+  assume_role_policy = data.aws_iam_policy_document.cluster_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "cluster_policy" {
+  role       = aws_iam_role.cluster.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+# ---------- EKS Cluster ----------
+resource "aws_eks_cluster" "this" {
+  name     = var.cluster_name
+  version  = var.kubernetes_version
+  role_arn = aws_iam_role.cluster.arn
+
+  vpc_config {
+    subnet_ids              = concat(var.private_subnet_ids, var.public_subnet_ids)
+    endpoint_private_access = true
+    endpoint_public_access  = true
+  }
+
+  enabled_cluster_log_types = ["api", "audit", "authenticator"]
+
+  depends_on = [aws_iam_role_policy_attachment.cluster_policy]
+}

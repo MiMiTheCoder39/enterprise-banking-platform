@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: base-resources
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/MiMiTheCoder39/enterprise-banking-platform
+    targetRevision: main
+    path: k8s-manifests/base
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
