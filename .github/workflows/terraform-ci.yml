@@ -1,0 +1,54 @@
+name: Terraform CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-ci.yml"
+  pull_request:
+    paths:
+      - "terraform/**"
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: Lint, Validate & Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+
+      - name: Terraform init (dev)
+        run: terraform init -backend=false
+        working-directory: terraform/environments/dev
+
+      - name: Terraform validate (dev)
+        run: terraform validate
+        working-directory: terraform/environments/dev
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: TFLint
+        run: |
+          tflint --init
+          tflint --recursive
+        working-directory: terraform
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          soft_fail: true

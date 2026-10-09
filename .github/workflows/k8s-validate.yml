@@ -1,0 +1,52 @@
+name: Kubernetes Manifests CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "k8s-manifests/**"
+      - ".github/workflows/k8s-validate.yml"
+  pull_request:
+    paths:
+      - "k8s-manifests/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: YAML Lint & Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: yamllint
+        run: |
+          pip install yamllint
+          yamllint -d "{extends: relaxed, rules: {line-length: disable}}" k8s-manifests
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: kubeconform
+        run: |
+          kubeconform -ignore-missing-schemas -summary \
+            k8s-manifests/apps k8s-manifests/base k8s-manifests/argocd-apps
+
+  trivy-config:
+    name: Trivy Misconfiguration Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy config scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "0"
